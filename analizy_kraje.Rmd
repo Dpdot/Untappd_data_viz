@@ -1,0 +1,83 @@
+
+```{r}
+checkins_frame <- data.frame(matrix(unlist(checkins), nrow=length(checkins), byrow=TRUE))
+names(checkins_frame) <- c(names(checkins[[1]])[1:9], paste0("b_",names(checkins[[1]]$beer)), names(checkins[[1]]$brewery)[1:7], names(checkins[[1]]$brewery$contact), names(checkins[[1]]$brewery$location), names(checkins[[1]]$brewery)[10])
+```
+
+```{r}
+checkins_frame$rating_score <- as.numeric(checkins_frame$rating_score)
+checkins_frame$b_beer_abv <- as.numeric(checkins_frame$b_beer_abv)
+checkins_frame$b_beer_ibu <- as.numeric(checkins_frame$b_beer_abv)
+checkins_frame$b_rating_score <- as.numeric(checkins_frame$b_rating_score)
+checkins_frame$b_rating_count <- as.numeric(checkins_frame$b_rating_count)
+```
+
+```{r}
+checkins_frame_D <- checkins_frame
+
+checkins_frame_D <- checkins_frame_D[!duplicated(checkins_frame_S$first_checkin_id),]
+```
+
+```{r}
+oceny_kraj <- checkins_frame %>% group_by(country_name) %>% summarise(srednia_user = mean(rating_score), srednia_global = mean(b_rating_score), roznica = srednia_user - srednia_global ,ilosc = n()) %>% arrange(desc(roznica))
+```
+
+```{r}
+oceny_kraj_wykres <- oceny_kraj %>% filter(ilosc >= 10)
+```
+
+```{r}
+ggplot(data = oceny_kraj_wykres, aes(roznica,country_name)) +
+  geom_col(aes(fill=roznica)) +
+  scale_fill_gradient(low="red", high="green",limits = c(-0.3, 0.3)) +
+  labs(x = "Różnica między oceną użytkownika, a średnią oceną piw",
+       y = "Kraj pochodzenia piwa",
+       title = "Różnice w ocenie piw zależnie od kraju") +
+  theme_classic() +
+  theme(legend.position="none") +
+  geom_label(aes(label = round(roznica,2)), hjust = 0.5, fill = "light grey", label.size = 0, size = 3)
+```
+
+```{r}
+ggplot(data = checkins_frame, aes(b_beer_abv,rating_score)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+  
+```
+
+```{r}
+mapowanie <- read.xlsx("mapowanie_input.xlsx", sheet = "input")
+```
+
+
+```{r}
+checkins_frame_style <- merge(checkins_frame_R,mapowanie, by.x = "b_beer_style", by.y = "Label.-.orginal")
+
+checkins_frame_style %>% group_by(`Label.-.mapping`) %>% summarise(ilosc = n())
+
+checkins_frame_style %>% filter(`Label.-.mapping` == "-")
+```
+
+```{r}
+oceny_styl <- checkins_frame_style %>% group_by(`Label.-.mapping`) %>% summarise(srednia_user = mean(rating_score), srednia_global = mean(b_rating_score), roznica = srednia_user - srednia_global ,ilosc = n()) %>% arrange(desc(roznica))
+```
+
+```{r}
+oceny_styl_wykres <- oceny_styl %>% filter(ilosc >= 50)
+```
+
+```{r}
+ggplot(data = oceny_styl_wykres, aes(roznica,`Label.-.mapping`)) +
+  geom_col(aes(fill=roznica)) +
+  scale_fill_gradient(low="red", high="green",limits = c(-0.1, 0.1)) +
+  labs(x = "Różnica między oceną użytkownika, a średnią oceną piw",
+       y = "Kraj pochodzenia piwa",
+       title = "Różnice w ocenie piw zależnie od kraju") +
+  theme_classic() +
+  theme(legend.position="none") +
+  geom_label(aes(label = round(roznica,2)), hjust = 0.5, fill = "light grey", label.size = 0, size = 3)
+```
+```{r}
+checkins_frame_R %>% filter(b_rating_score == 0)
+```
+

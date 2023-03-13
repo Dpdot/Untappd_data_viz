@@ -1,0 +1,215 @@
+
+```{r}
+library(httr)
+library(rjson)
+library(stringr)
+library(tidyverse)
+library(lubridate)
+library(openxlsx)
+library(data.table)
+library(rvest)
+library(shiny)
+library(ggplot2)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(ggrepel)
+
+untappdAPI <- function(adres) {
+  adres_url <- paste(adres,"&client_id=BEE5D99036C1A685A993F03F2112D91372339C48&client_secret=923B3926CB8482D5AF8CCC7661929E129DA4FAC0", sep = "")
+  
+  wez <- GET(adres_url)
+  
+  fromJSON(rawToChar(wez$content))
+}
+
+jakoData <- function(untappddata) {
+  
+  data_rozdziel <- str_split(untappddata, " ")[[1]]
+  
+  data_format <- paste(data_rozdziel[4],data_rozdziel[3],data_rozdziel[2],data_rozdziel[5])
+  
+  ymd_hms(data_format)
+  
+}
+
+`%notin%` <- Negate(`%in%`)
+```
+
+```{r}
+start <- "https://api.untappd.com/v4"
+warunki = "?limit=50"
+
+user_1 <- "dpdot"
+
+adres_url <- paste(start,"/user/beers/",user_1,warunki, sep = "")
+
+checkins <- list()
+
+
+
+dodaj <- 0
+
+lista_tablic <- list()
+
+while(adres_url != "") {
+  
+  dane_user <- untappdAPI(adres_url)
+  
+  if(length(dane_user$response$beers$items) > 0) {
+  
+     checkin <- as.list(dane_user$response$beers$items)
+     
+     checkins <- c(checkins,checkin) 
+  
+    adres_url <- dane_user$response$pagination$next_url
+
+  } else {adres_url <- ""}
+}
+```
+#
+
+```{r}
+checkins <- checkins_radzisz
+
+checkins_radzisz <- c(checkins_radzisz,checkins)
+```
+
+```{r}
+checkins <- checkins_Kalka
+
+checkins_Kalka <- checkins_Kalka_new
+```
+
+```{r}
+checkins <- checkins_Staszek
+
+checkins_Staszek <- c(checkins_Staszek,checkins)
+```
+
+```{r}
+checkins <- checkins_Daniel
+
+checkins_Daniel <- c(checkins_Daniel,checkins)
+```
+
+```{r}
+center_countries <- read.csv("center_countries.csv", sep = ";")[2:4]
+```
+
+
+```{r}
+dlug <- c()
+szer <- c()
+panstwo <- c()
+browar <- c()
+
+
+for(i in 1:length(checkins)) {
+long <- checkins[[i]]$brewery$location$lng
+lati <- checkins[[i]]$brewery$location$lat
+pans <- checkins[[i]]$brewery$country_name
+brow <- checkins[[i]]$brewery$brewery_name
+if(pans %in% c("England","Scotland","Wales")) {pans = "United Kingdom"}
+dlug <- c(dlug, long)
+szer <- c(szer, lati)
+panstwo <- c(panstwo, pans)
+browar <- c(browar, brow)
+}
+
+brewery_loc <- data.frame(dlug,szer,panstwo,brow)
+
+brewery_loc <- distinct(brewery_loc)
+```
+
+
+```{r}
+brewery_loc_2 <- brewery_loc %>% filter(dlug != 0 & szer != 0) %>% select(dlug,szer)
+
+brewery_loc_sf <- st_as_sf(brewery_loc, 
+	coords = c("dlug", "szer"), 
+	remove = FALSE, 
+	crs = 4326, 
+	agr = "constant")
+```
+
+```{r}
+country_label <- brewery_loc %>% group_by(panstwo) %>% count() %>% mutate(label = paste0(panstwo," [",n,"]")) %>% left_join(center_countries, by = c("panstwo" = "name"))
+
+
+```
+
+
+```{r}
+kraje <- c()
+
+for(i in 1:length(checkins)) {
+kraj <- checkins[[i]]$brewery$country_name
+if(kraj %in% c("England","Scotland","Wales")) {kraj = "United Kingdom"}
+if(kraj == "Russia") {kraj = "Russian Federation"}
+kraje <- c(kraje, kraj)
+}
+
+kraje <- unique(kraje)
+```
+
+```{r}
+usa <- map_data("poland")
+```
+
+```{r}
+SHP_0 <- get_eurostat_geospatial(resolution = 10, 
+                                 nuts_level = 0, 
+                                 year = 2016)
+```
+
+
+```{r}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+```
+
+
+```{r}
+ggplot(data = world) +
+       geom_sf(fill = ifelse(world$name_long %in% kraje, "#c8242b", "lightgrey"), 
+	color = "black") +
+	geom_label_repel(data = country_label, 
+		aes(x = longitude, y = latitude, label = label), 
+		color = "black", 
+		fontface = "bold", 
+		size = 2.5, 
+		force = 5) +
+	coord_sf(xlim = c(-20.1, 38.88), 
+		ylim = c(35, 65), 
+		expand = TRUE)
+```
+
+```{r}
+ggplot(data = world) +
+       geom_sf(fill = ifelse(world$name_long %in% kraje, "#c8242b", "lightgrey"), 
+	color = "black") +
+  geom_sf(data = brewery_loc_sf) +
+	coord_sf(xlim = c(-16.1, 32.88), 
+		ylim = c(35, 63), 
+		expand = TRUE)
+```
+
+
+```{r}
+ggplot(data = world) +
+       geom_sf(fill = ifelse(world$name_long %in% kraje, "#c8242b", "lightgrey"), 
+	color = "black") +
+	coord_sf(xlim = c(-140, -50), 
+	         ylim = c(25, 55), 
+		        expand = TRUE)
+```
+
+```{r}
+ggplot(data = world) +
+       geom_sf() +
+       geom_sf(data = brewery_loc_sf) +
+	coord_sf(xlim = c(-140, -50), 
+	         ylim = c(25, 55), 
+		        expand = TRUE)
+```
+

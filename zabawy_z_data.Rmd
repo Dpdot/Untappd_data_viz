@@ -1,0 +1,78 @@
+
+```{r}
+library(lubridate)
+
+time_parameters <- strsplit(checkins_frame_all$recent_created_at, " ")
+add_data_column <- data.frame(matrix(unlist(time_parameters), nrow=length(time_parameters), byrow=TRUE))
+names(add_data_column) <- c("name_day","day","month","year","time","time_zone")
+
+add_data_column$date <- paste0(add_data_column$day,"-",add_data_column$month,"-",add_data_column$year," ",add_data_column$time)
+
+```
+
+#JOIN DATA
+```{r}
+checkins_frame_all <- rbind(checkins_frame_R,checkins_frame_K,checkins_frame_S,checkins_frame_D)
+```
+
+
+```{r}
+
+add_data_column$date <- as.POSIXct(add_data_column$date, format = "%d-%b-%Y %H:%M:%S")
+
+
+```
+
+```{r}
+checkins_frame_all_time <- cbind(checkins_frame_all,add_data_column$date)
+names(checkins_frame_all_time) <- c(names(checkins_frame_all_time)[1:37],"date")
+```
+
+```{r}
+
+checkins_frame_all_time %>% mutate(hour = hour(date)) %>% group_by(hour) %>% summarise(ilosc_ocen = n(),ocena_u = mean(rating_score),ocena_g = mean(b_rating_score),diff = (ocena_u - ocena_g)) %>% filter(ilosc_ocen > 100)
+```
+
+#TOP 10 browarów w czasie
+
+```{r}
+top_browary <- checkins_frame_all_time %>% group_by(brewery_name) %>% summarise(ilosc_ocen = n()) %>% top_n(5)
+
+top_browary_quart <- checkins_frame_all_time %>% 
+  filter(brewery_name %in% top_browary$brewery_name) %>% 
+  mutate(kwartal = paste0(substring(as.character(year(date)),3,4),"'","Q",as.character(quarter(date)))) %>% 
+  group_by(kwartal,brewery_name) %>% 
+  summarise(ilosc_ocen = n()) %>% 
+  ungroup()
+
+top_browary_quart <- checkins_frame_all_time %>% 
+  mutate(kwartal = paste0(substring(as.character(year(date)),3,4),"'","Q",as.character(quarter(date)))) %>% 
+  group_by(kwartal) %>% 
+  summarise(ilosc_ocen = n()) %>% 
+  ungroup()
+```
+
+```{r}
+#%>% mutate(rokmies = as.POSIXct(paste0("01","-",month,"-",year), format = "%d-%h-%Y"))
+brok <- top_browary_quart %>% filter(brewery_name == top_browary$brewery_name[8])
+
+ggplot(data = brok, aes(kwartal,ilosc_ocen)) +
+  geom_bar(stat='identity') +
+  labs(title = top_browary$brewery_name[8])
+
+ggplot(data = top_browary_quart, aes(kwartal,ilosc_ocen)) +
+  geom_bar(stat='identity') +
+  labs(title = "Total") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+```{r}
+ggplot(data = top_browary_quart, aes(x=kwartal,y=ilosc_ocen, group = brewery_name, color = brewery_name)) +
+  geom_line() +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+
+
+

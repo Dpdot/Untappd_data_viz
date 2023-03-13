@@ -1,0 +1,22 @@
+
+```{r}
+for(i in 1:length(checkins)) {
+ checkins[[i]]$diff_score <- checkins[[i]]$rating_score - checkins[[i]]$beer$rating_score
+ checkins[[i]]$diff_score_2 <- (checkins[[i]]$rating_score - checkins[[i]]$beer$rating_score)^2
+}
+```
+
+```{r}
+diff_score <- unlist(sapply(checkins,function(x){as.numeric(x[12])}))
+
+mean(diff_score)
+
+mean(checkins_frame$rating_score - checkins_frame$b_rating_score)
+```
+
+```{r}
+diff_score_2 <- unlist(sapply(checkins,function(x){as.numeric(x[13])}))
+
+sqrt(mean(diff_score_2))
+```
+
